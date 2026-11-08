@@ -9,9 +9,10 @@ interface ChecklistItemProps {
   desabilitado?: boolean
 }
 
+// ✅ ALTERAÇÃO AQUI: Apenas os 'label' foram mudados para exibição. Os 'valor' permanecem iguais para o banco de dados.
 const OPCOES: { valor: RespostaChecklist; label: string; cor: string; icone: any }[] = [
-  { valor: 'ok', label: 'OK', cor: 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200', icone: CheckCircle },
-  { valor: 'nao_ok', label: 'NÃO OK', cor: 'bg-red-100 text-red-700 border-red-300 hover:bg-red-200', icone: XCircle },
+  { valor: 'ok', label: 'SIM', cor: 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200', icone: CheckCircle },
+  { valor: 'nao_ok', label: 'NÃO', cor: 'bg-red-100 text-red-700 border-red-300 hover:bg-red-200', icone: XCircle },
   { valor: 'nao_verificado', label: 'Não verificado', cor: 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200', icone: HelpCircle },
 ]
 

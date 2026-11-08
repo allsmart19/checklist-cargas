@@ -108,11 +108,11 @@ export async function gerarRelatorioPDF(dados: DadosRelatorio) {
       : checklist
 
     const checklistData = checklistFiltrado.map(item => {
-      const label =
-        item.resposta === 'ok' ? '✓ OK' :
-        item.resposta === 'nao_ok' ? '✗ NÃO OK' : '— Não verificado'
-      return [item.item, label, item.observacao || '—']
-    })
+  const label =
+    item.resposta === 'ok' ? '✓ SIM' :
+    item.resposta === 'nao_ok' ? '✗ NÃO' : '— Não verificado'
+  return [item.item, label, item.observacao || '—']
+})
 
     autoTable(doc, {
       startY: y,

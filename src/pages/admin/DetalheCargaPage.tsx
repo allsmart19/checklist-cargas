@@ -316,8 +316,8 @@ export function DetalheCargaPage() {
       item.resposta === 'ok' ? 'text-green-600' :
       item.resposta === 'nao_ok' ? 'text-red-600' : 'text-gray-400'
     const label =
-      item.resposta === 'ok' ? 'OK' :
-      item.resposta === 'nao_ok' ? 'NÃO OK' : 'Não verificado'
+  item.resposta === 'ok' ? 'SIM' :
+  item.resposta === 'nao_ok' ? 'NÃO' : 'Não verificado'
     return (
       <div key={item.id} className="flex items-start justify-between p-3 bg-gray-50 rounded-lg">
         <div className="flex-1">
