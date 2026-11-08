@@ -15,7 +15,6 @@ const OPCOES: { valor: RespostaChecklist; label: string; cor: string; icone: any
   { valor: 'nao_ok', label: 'NÃO', cor: 'bg-red-100 text-red-700 border-red-300 hover:bg-red-200', icone: XCircle },
   { valor: 'nao_verificado', label: 'Não verificado', cor: 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200', icone: HelpCircle },
 ]
-
 export function ChecklistItem({ item, onSalvar, desabilitado = false }: ChecklistItemProps) {
   const [observacao, setObservacao] = useState(item.observacao || '')
   const [editandoObs, setEditandoObs] = useState(false)
