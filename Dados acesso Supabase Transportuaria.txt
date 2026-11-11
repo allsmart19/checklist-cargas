@@ -1,0 +1,15 @@
+Dados acesso Supabase Transportuaria
+
+Email: transportuaria.app@gmail.com
+Senha: N!col@u@1020
+
+Nome do projeto: Checklist-Cargas
+
+API Url: 
+https://stcikeskwurlkkcdvvun.supabase.co/rest/v1/
+
+anon public: 
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0Y2lrZXNrd3VybGtrY2R2dnVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNjgzMDYsImV4cCI6MjEwNzg0NDMwNn0.DKlJmVqaTCwIMLDmMHg5l949_-uhTVJjtEhGjfZj93g
+
+service_role secret:
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0Y2lrZXNrd3VybGtrY2R2dnVuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjI2ODMwNiwiZXhwIjoyMTA3ODQ0MzA2fQ.2VUw37gb_vQLWUU1l5w8HR7Yd4fSJShuwehICep4XH8
