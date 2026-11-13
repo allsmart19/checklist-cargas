@@ -40,7 +40,7 @@ export async function gerarRelatorioPDF(dados: DadosRelatorio) {
 
   y = 45
 
-  // ===== DADOS DA OPERAÇÃO =====
+  // ===== DADOS DA CARGA =====
   doc.setTextColor(0, 0, 0)
   doc.setFontSize(14)
   doc.setFont('helvetica', 'bold')
@@ -53,17 +53,16 @@ export async function gerarRelatorioPDF(dados: DadosRelatorio) {
   // Label dinâmico para a data conforme tipo de operação
   const labelData = ehCarregamento ? 'Data de Início:' : 'Data de Recebimento:'
 
-  // ✅ APENAS os campos pertinentes ao formulário simplificado
   const dadosCarga = [
-  ['Número da Carga:', carga.numero_carga],
-  ['Tipo de Operação:', tipoOperacao],
-  ['Status:', STATUS_CARGA_LABELS[carga.status] || carga.status],
-  ['Cliente:', carga.cliente_nome || '—'],
-  ['Número do Processo:', carga.nota_fiscal || '—'],
-  ['Rua / Local:', carga.destino || '—'],
-  ['Quantidade de Itens:', String(carga.quantidade_volumes)],
-  [labelData, formatarDataHora(carga.data_hora_recebimento)]
-]
+    ['Número da Carga:', carga.numero_carga],
+    ['Tipo de Operação:', tipoOperacao],
+    ['Status:', STATUS_CARGA_LABELS[carga.status] || carga.status],
+    ['Cliente:', carga.cliente_nome || '—'],
+    ['Número do Processo:', carga.nota_fiscal || '—'],
+    ['Rua / Local:', carga.destino || '—'],
+    ['Quantidade de Itens:', String(carga.quantidade_volumes)],
+    [labelData, formatarDataHora(carga.data_hora_recebimento)]
+  ]
 
   autoTable(doc, {
     startY: y,
@@ -102,17 +101,17 @@ export async function gerarRelatorioPDF(dados: DadosRelatorio) {
     doc.text('2. CHECKLIST DE CONFERÊNCIA', margem, y)
     y += 8
 
-    // ✅ Filtrar "Lacre conferido" se for carregamento (não há lacre em carregamentos)
+    // Filtrar "Lacre conferido" se for carregamento
     const checklistFiltrado = ehCarregamento
       ? checklist.filter(item => item.item !== 'Lacre conferido')
       : checklist
 
     const checklistData = checklistFiltrado.map(item => {
-  const label =
-    item.resposta === 'ok' ? '✓ SIM' :
-    item.resposta === 'nao_ok' ? '✗ NÃO' : '— Não verificado'
-  return [item.item, label, item.observacao || '—']
-})
+      const label =
+        item.resposta === 'ok' ? '✓ SIM' :
+        item.resposta === 'nao_ok' ? '✗ NÃO' : '— Não verificado'
+      return [item.item, label, item.observacao || '—']
+    })
 
     autoTable(doc, {
       startY: y,
@@ -174,7 +173,7 @@ export async function gerarRelatorioPDF(dados: DadosRelatorio) {
     y += 5
   }
 
-  // ===== FOTOS =====
+  // ===== FOTOS (TODAS, SEM LIMITE) =====
   if (fotos.length > 0) {
     if (y > 180) {
       doc.addPage()
@@ -199,42 +198,41 @@ export async function gerarRelatorioPDF(dados: DadosRelatorio) {
       fotosPorEtapa[etapa].push(foto)
     })
 
+    // ✅ Constantes de layout
+    const larguraFoto = 50
+    const alturaFoto = 50
+    const espacamento = 5
+    const fotosPorLinha = 3
+    const alturaLinha = alturaFoto + espacamento + 4 // +4 para legenda
+    const espacamentoEntreEtapas = 8
+
     for (const [etapa, fotosEtapa] of Object.entries(fotosPorEtapa)) {
-      if (y > 240) {
-        doc.addPage()
-        y = 20
-      }
+      // ✅ MOSTRAR TODAS AS FOTOS (sem slice)
+      const fotosParaMostrar = fotosEtapa
 
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(10)
-      doc.text(`Etapa: ${etapa.toUpperCase()}`, margem, y)
+      doc.text(`Etapa: ${etapa.toUpperCase()} (${fotosParaMostrar.length} fotos)`, margem, y)
       y += 6
 
-      // Mostrar até 6 fotos por etapa (2 linhas x 3 colunas)
-      const fotosParaMostrar = fotosEtapa.slice(0, 6)
       let col = 0
       let row = 0
-      const larguraFoto = 50
-      const alturaFoto = 50
-      const espacamento = 5
 
       for (const foto of fotosParaMostrar) {
-        if (col >= 3) {
-          col = 0
-          row++
-        }
-
-        if (y + row * (alturaFoto + espacamento) > 270) {
+        // Verificar se precisa de nova página
+        const yPosFoto = y + row * alturaLinha
+        if (yPosFoto + alturaFoto > 270) {
           doc.addPage()
           y = 20
           row = 0
+          col = 0
         }
 
         try {
           const dataURL = await urlParaDataURL(foto.url || '')
           if (dataURL) {
             const xPos = margem + col * (larguraFoto + espacamento)
-            const yPos = y + row * (alturaFoto + espacamento)
+            const yPos = y + row * alturaLinha
 
             doc.addImage(dataURL, 'JPEG', xPos, yPos, larguraFoto, alturaFoto)
 
@@ -248,9 +246,14 @@ export async function gerarRelatorioPDF(dados: DadosRelatorio) {
         }
 
         col++
+        if (col >= fotosPorLinha) {
+          col = 0
+          row++
+        }
       }
 
-      y += row * (alturaFoto + espacamento) + alturaFoto + 12
+      // Avançar Y para próxima etapa
+      y = y + row * alturaLinha + alturaFoto + espacamentoEntreEtapas
     }
   }
 
