@@ -18,12 +18,15 @@ interface NovaCargaPageProps {
   tipo: TipoOperacao
 }
 
+// ✅ Campos "Número do Container", "Número do Processo" e "Rua / Local" são OPCIONAIS
+// ✅ Campo "Número do Lacre" é OPCIONAL (aparece apenas em Descarregamento)
 const schema = z.object({
   cliente_id: z.string().min(1, 'Cliente é obrigatório'),
-  numero_carga: z.string().min(1, 'Número do container é obrigatório'),
+  numero_carga: z.string().optional(),
   quantidade_volumes: z.coerce.number().min(1, 'Quantidade de itens é obrigatória'),
-  nota_fiscal: z.string().min(1, 'Número do processo é obrigatório'),
-  destino: z.string().min(1, 'Rua é obrigatória'),
+  nota_fiscal: z.string().optional(),
+  destino: z.string().optional(),
+  numero_lacre: z.string().optional(),
   observacoes: z.string().optional(),
 })
 
@@ -43,6 +46,7 @@ export function NovaCargaPage({ tipo }: NovaCargaPageProps) {
       numero_carga: '',
       nota_fiscal: '',
       destino: '',
+      numero_lacre: '',
       observacoes: ''
     }
   })
@@ -60,22 +64,41 @@ export function NovaCargaPage({ tipo }: NovaCargaPageProps) {
     setErro(null)
     setCarregando(true)
 
-    // ✅ Garante que o tipo seja salvo exatamente como 'carregamento' ou 'descarregamento'
     const tipoNormalizado = tipo === 'carregamento' ? 'carregamento' : 'descarregamento'
 
+    // ✅ Gera valor padrão quando campos opcionais estiverem vazios
+    // (evita erro "null value violates not-null constraint" no banco de dados)
+    const numeroCargaFinal = data.numero_carga && data.numero_carga.trim() !== ''
+      ? data.numero_carga.toUpperCase()
+      : `N/A-${Date.now().toString().slice(-6)}`
+
+    const notaFiscalFinal = data.nota_fiscal && data.nota_fiscal.trim() !== ''
+      ? data.nota_fiscal
+      : 'N/A'
+
+    const destinoFinal = data.destino && data.destino.trim() !== ''
+      ? data.destino
+      : 'N/A'
+
+    // ✅ Lacre é salvo apenas em descarregamento (null em carregamento)
+    const numeroLacreFinal = tipoNormalizado === 'descarregamento' && data.numero_lacre && data.numero_lacre.trim() !== ''
+      ? data.numero_lacre
+      : null
+
     const dadosParaSalvar = {
-      numero_carga: data.numero_carga.toUpperCase(),
+      numero_carga: numeroCargaFinal,
       cliente_id: data.cliente_id,
       quantidade_volumes: data.quantidade_volumes,
-      nota_fiscal: data.nota_fiscal,
-      destino: data.destino,
+      nota_fiscal: notaFiscalFinal,
+      destino: destinoFinal,
+      numero_lacre: numeroLacreFinal,
       observacoes: data.observacoes || null,
       origem: null,
       transportadora_id: null,
       motorista_id: null,
       veiculo_id: null,
       quantidade_containers: 0,
-      tipo_carga: tipoNormalizado // ✅ CAMPO SALVO CORRETAMENTE
+      tipo_carga: tipoNormalizado
     }
 
     console.log('💾 Salvando carga com tipo_carga:', tipoNormalizado, dadosParaSalvar)
@@ -96,8 +119,6 @@ export function NovaCargaPage({ tipo }: NovaCargaPageProps) {
   const titulo = ehCarregamento ? 'Novo Carregamento' : 'Novo Descarregamento'
   const corIcone = ehCarregamento ? 'text-blue-600' : 'text-green-600'
   const corBotao = ehCarregamento ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'
-  
-  // ✅ Correção do ícone: usar como componente JSX (com letra maiúscula)
   const IconeOperacao = ehCarregamento ? Upload : Download
 
   return (
@@ -129,17 +150,17 @@ export function NovaCargaPage({ tipo }: NovaCargaPageProps) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Número do Container *</label>
+              {/* ✅ Label SEM asterisco (campo opcional) */}
+              <label className="block text-sm font-medium text-gray-700 mb-1">Número do Container</label>
               <input
                 className={`w-full rounded-lg border px-4 py-2.5 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   errors.numero_carga ? 'border-red-500' : 'border-gray-300'
                 }`}
-                placeholder="Ex: MSCU1234567"
+                placeholder="Ex: MSCU1234567 (opcional)"
                 {...register('numero_carga')}
               />
               {errors.numero_carga && <p className="mt-1 text-xs text-red-500">{errors.numero_carga.message}</p>}
             </div>
-
             <Input
               label="Quantidade de Itens *"
               type="number"
@@ -150,20 +171,31 @@ export function NovaCargaPage({ tipo }: NovaCargaPageProps) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* ✅ Label SEM asterisco (campo opcional) */}
             <Input
-              label="Número do Processo *"
-              placeholder="Ex: PROC-2024-001"
+              label="Número do Processo"
+              placeholder="Ex: PROC-2024-001 (opcional)"
               error={errors.nota_fiscal?.message}
               {...register('nota_fiscal')}
             />
-
+            {/* ✅ Label SEM asterisco (campo opcional) */}
             <Input
-              label="Rua / Local *"
-              placeholder="Ex: Rua 250, Setor B"
+              label="Rua / Local"
+              placeholder="Ex: Rua 250, Setor B (opcional)"
               error={errors.destino?.message}
               {...register('destino')}
             />
           </div>
+
+          {/* ✅ Campo "Número do Lacre" - APENAS em Descarregamento */}
+          {!ehCarregamento && (
+            <Input
+              label="Número do Lacre"
+              placeholder="Ex: LAC-2024-001 (opcional)"
+              error={errors.numero_lacre?.message}
+              {...register('numero_lacre')}
+            />
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
