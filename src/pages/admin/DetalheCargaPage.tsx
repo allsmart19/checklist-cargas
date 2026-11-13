@@ -47,12 +47,12 @@ export function DetalheCargaPage() {
   const [fotos, setFotos] = useState<Foto[]>([])
   const [nomeOperador, setNomeOperador] = useState<string>('—')
   const [fotoExpandida, setFotoExpandida] = useState<Foto | null>(null)
+  const [excluindoFoto, setExcluindoFoto] = useState<string | null>(null)
 
   useEffect(() => {
     async function carregar() {
       if (!id) return
       setCarregando(true)
-
       const [resCarga, resCheck, resAvar, resHist, resFoto] = await Promise.all([
         buscarCargaDetalhe(id),
         buscarChecklist(id),
@@ -60,45 +60,34 @@ export function DetalheCargaPage() {
         buscarHistorico(id),
         buscarFotosDaCarga(id)
       ])
-
       setCarga(resCarga.data)
       setChecklist(resCheck.data || [])
       setAvarias(resAvar.data || [])
       setHistorico(resHist.data || [])
       setFotos(resFoto.data || [])
-
-      // Buscar nome do operador
-      // Prioridade 1: Campo criado_por da carga
-      // Prioridade 2: Primeiro item do checklist com usuario_id
-      // Prioridade 3: Primeiro evento do histórico com usuario_id
       let usuarioId = resCarga.data?.criado_por
-
       if (!usuarioId && resCheck.data && resCheck.data.length > 0) {
         const itemComUsuario = resCheck.data.find(item => item.usuario_id)
         if (itemComUsuario) {
           usuarioId = itemComUsuario.usuario_id
         }
       }
-
       if (!usuarioId && resHist.data && resHist.data.length > 0) {
         const eventoComUsuario = resHist.data.find(evento => evento.usuario_id)
         if (eventoComUsuario) {
           usuarioId = eventoComUsuario.usuario_id
         }
       }
-
       if (usuarioId) {
         const { data: usuarioData } = await supabase
           .from('usuarios')
           .select('nome')
           .eq('id', usuarioId)
           .single()
-
         if (usuarioData) {
           setNomeOperador(usuarioData.nome)
         }
       }
-
       setCarregando(false)
     }
     carregar()
@@ -107,15 +96,12 @@ export function DetalheCargaPage() {
   async function handleGerarPDF() {
     if (!id) return
     setGerandoPDF(true)
-
     const dados = await buscarDadosRelatorio(id)
-
     if (!dados) {
       alert('Erro ao carregar dados para o relatório.')
       setGerandoPDF(false)
       return
     }
-
     try {
       await gerarRelatorioPDF(dados)
     } catch (error) {
@@ -128,22 +114,70 @@ export function DetalheCargaPage() {
 
   async function handleExcluir() {
     if (!carga) return
-
     if (!confirm(`⚠️ ATENÇÃO: Confirma excluir permanentemente esta operação?\n\nCarga: ${carga.numero_carga}\nTipo: ${carga.tipo_carga === 'carregamento' ? 'Carregamento' : 'Descarregamento'}\n\nEsta ação NÃO pode ser desfeita e excluirá:\n- Dados da carga\n- Checklist\n- Fotos\n- Histórico\n- Avarias`)) {
       return
     }
-
     setExcluindo(true)
     const { error } = await excluirCarga(carga.id)
     setExcluindo(false)
-
     if (error) {
       alert('Erro ao excluir carga: ' + error.message)
       return
     }
-
     alert('Operação excluída com sucesso!')
     navigate('/admin/cargas')
+  }
+
+  // ✅ NOVA FUNÇÃO: Excluir foto individual
+  async function handleExcluirFoto(foto: Foto) {
+    if (!confirm(`⚠️ Confirma excluir esta foto?\n\nEsta ação NÃO pode ser desfeita.`)) {
+      return
+    }
+
+    setExcluindoFoto(foto.id)
+
+    try {
+      // 1. Excluir arquivo do Storage
+      if (foto.url) {
+        // Extrair o caminho do arquivo da URL
+        const urlParts = foto.url.split('/storage/v1/object/public/fotos/')
+        if (urlParts.length > 1) {
+          const filePath = urlParts[1]
+          const { error: storageError } = await supabase.storage
+            .from('fotos')
+            .remove([filePath])
+          
+          if (storageError) {
+            console.error('Erro ao excluir do storage:', storageError)
+          }
+        }
+      }
+
+      // 2. Excluir registro do banco de dados
+      const { error: dbError } = await supabase
+        .from('fotos')
+        .delete()
+        .eq('id', foto.id)
+
+      if (dbError) {
+        throw dbError
+      }
+
+      // 3. Atualizar estado local
+      setFotos(fotosAnteriores => fotosAnteriores.filter(f => f.id !== foto.id))
+      
+      // 4. Fechar modal se estiver aberto
+      if (fotoExpandida?.id === foto.id) {
+        setFotoExpandida(null)
+      }
+
+      alert('Foto excluída com sucesso!')
+    } catch (error: any) {
+      console.error('Erro ao excluir foto:', error)
+      alert('Erro ao excluir foto: ' + (error.message || 'Erro desconhecido'))
+    } finally {
+      setExcluindoFoto(null)
+    }
   }
 
   if (carregando) {
@@ -186,7 +220,6 @@ export function DetalheCargaPage() {
             <p className="text-sm text-gray-500 mt-1">
               Recebida em {formatarDataHora(carga.data_hora_recebimento)}
             </p>
-            {/* Nome do operador que realizou o checklist */}
             <div className="flex items-center gap-2 mt-1">
               <User className="w-3 h-3 text-gray-400" />
               <p className="text-sm text-gray-600">
@@ -232,7 +265,6 @@ export function DetalheCargaPage() {
           </div>
         </div>
 
-        {/* CAMPOS SIMPLIFICADOS - Apenas os pertinentes */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <InfoCard
             icone={<Package className="w-4 h-4 text-blue-600" />}
@@ -306,35 +338,35 @@ export function DetalheCargaPage() {
           <p className="text-sm text-gray-500 text-center py-4">Checklist não iniciado</p>
         ) : (
           <div className="space-y-2">
-           {checklist
-  .filter(item => !(ehCarregamento && item.item === 'Lacre conferido'))
-  .map((item) => {
-    const IconeComponent =
-      item.resposta === 'ok' ? CheckCircle :
-      item.resposta === 'nao_ok' ? XCircle : HelpCircle
-    const cor =
-      item.resposta === 'ok' ? 'text-green-600' :
-      item.resposta === 'nao_ok' ? 'text-red-600' : 'text-gray-400'
-    const label =
-  item.resposta === 'ok' ? 'SIM' :
-  item.resposta === 'nao_ok' ? 'NÃO' : 'Não verificado'
-    return (
-      <div key={item.id} className="flex items-start justify-between p-3 bg-gray-50 rounded-lg">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-900">{item.item}</p>
-          {item.observacao && (
-            <p className="text-xs text-gray-600 mt-1 italic">
-              "{item.observacao}"
-            </p>
-          )}
-        </div>
-        <div className={`flex items-center gap-1 ${cor}`}>
-          <IconeComponent className="w-4 h-4" />
-          <span className="text-xs font-medium">{label}</span>
-        </div>
-      </div>
-    )
-  })}
+            {checklist
+              .filter(item => !(ehCarregamento && item.item === 'Lacre conferido'))
+              .map((item) => {
+                const IconeComponent =
+                  item.resposta === 'ok' ? CheckCircle :
+                  item.resposta === 'nao_ok' ? XCircle : HelpCircle
+                const cor =
+                  item.resposta === 'ok' ? 'text-green-600' :
+                  item.resposta === 'nao_ok' ? 'text-red-600' : 'text-gray-400'
+                const label =
+                  item.resposta === 'ok' ? 'SIM' :
+                  item.resposta === 'nao_ok' ? 'NÃO' : 'Não verificado'
+                return (
+                  <div key={item.id} className="flex items-start justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">{item.item}</p>
+                      {item.observacao && (
+                        <p className="text-xs text-gray-600 mt-1 italic">
+                          "{item.observacao}"
+                        </p>
+                      )}
+                    </div>
+                    <div className={`flex items-center gap-1 ${cor}`}>
+                      <IconeComponent className="w-4 h-4" />
+                      <span className="text-xs font-medium">{label}</span>
+                    </div>
+                  </div>
+                )
+              })}
           </div>
         )}
       </Card>
@@ -371,7 +403,7 @@ export function DetalheCargaPage() {
         </Card>
       )}
 
-      {/* ✅ Fotos com clique para expandir */}
+      {/* Fotos */}
       <Card>
         <div className="flex items-center gap-2 mb-4">
           <ImageIcon className="w-5 h-5 text-blue-600" />
@@ -394,12 +426,27 @@ export function DetalheCargaPage() {
                   alt={foto.tipo}
                   className="w-full h-full object-cover"
                 />
-
                 {/* Overlay ao passar o mouse */}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
                   <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
-
+                {/* ✅ Botão de excluir foto (canto superior direito) */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation() // Evita abrir o modal
+                    handleExcluirFoto(foto)
+                  }}
+                  disabled={excluindoFoto === foto.id}
+                  className="absolute top-2 right-2 p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Excluir foto"
+                >
+                  {excluindoFoto === foto.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                </button>
                 {/* Legenda inferior */}
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
                   <p className="text-white text-xs truncate">
@@ -412,7 +459,7 @@ export function DetalheCargaPage() {
         )}
       </Card>
 
-      {/* ✅ Modal de Imagem Expandida */}
+      {/* Modal de Imagem Expandida */}
       {fotoExpandida && (
         <ImageModal
           url={fotoExpandida.url}
@@ -424,7 +471,6 @@ export function DetalheCargaPage() {
   )
 }
 
-// Componente de card de informação com ícone
 function InfoCard({
   icone,
   label,
@@ -445,9 +491,7 @@ function InfoCard({
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
-        <p className={`font-medium mt-0.5 break-words ${
-          destaque ? 'text-lg text-blue-700 font-bold' : 'text-gray-900'
-        }`}>
+        <p className={`font-medium mt-0.5 break-words ${destaque ? 'text-lg text-blue-700 font-bold' : 'text-gray-900'}`}>
           {value || '—'}
         </p>
       </div>
